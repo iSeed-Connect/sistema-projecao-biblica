@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎤 Sistema de Projeção Bíblica - AssemblyAI + N8N</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            min-height: 100vh;
+        }
+        
+        .control-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .projection-screen {
+            background: rgba(0,0,0,0.9);
+            border-radius: 20px;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 3px solid #ffd700;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .config-section {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section h3 {
+            margin-bottom: 15px;
+            color: #ffd700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .config-item {
+            margin: 12px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .config-item label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .config-item input, .config-item select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 10px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .config-item input:focus, .config-item select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76,175,80,0.3);
+        }
+        
+        .record-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: none;
+            padding: 20px 40px;
+            border-radius: 50px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        .record-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+        }
+        
+        .record-button.recording {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            animation: pulse-glow 2s infinite;
+        }
+        
+        .record-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            animation: none;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { 
+                box-shadow: 0 10px 20px rgba(244,67,54,0.3); 
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 15px 40px rgba(244,67,54,0.7); 
+                transform: scale(1.02);
+            }
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f44336;
+            animation: blink 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #4CAF50;
+            animation: none;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .transcript-area {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            min-height: 120px;
+            border-left: 4px solid #2196F3;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .verse-display {
+            font-size: 2.8rem;
+            line-height: 1.4;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            margin: 30px 0;
+            z-index: 1;
+            position: relative;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .verse-reference {
+            font-size: 1.5rem;
+            color: #ffd700;
+            font-weight: bold;
+            margin-top: 30px;
+            z-index: 1;
+            position: relative;
+        }
+        
+        .placeholder-text {
+            color: rgba(255,255,255,0.6);
+            font-size: 1.8rem;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .log-area {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .keywords-detected {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .keyword-tag {
+            background: rgba(76,175,80,0.3);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(76,175,80,0.5);
+        }
+        
+        .keyword-tag.detected {
+            background: rgba(255,193,7,0.8);
+            color: #000;
+            animation: highlight 0.6s ease;
+        }
+        
+        @keyframes highlight {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        
+        .processing-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255,152,0,0.2);
+            border-radius: 10px;
+            border-left: 4px solid #FF9800;
+        }
+        
+        .processing-indicator.active {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid #FF9800;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336 0%, #ff9800 50%, #4caf50 100%);
+            transition: width 0.8s ease;
+            border-radius: 4px;
+            width: 0%;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .stat-label {
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.7);
+            margin-top: 5px;
+        }
+        
+        .toggle-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        
+        .toggle-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Painel de Controle -->
+        <div class="control-panel">
+            <h1>🎤 Sistema de Projeção Bíblica</h1>
+            <p style="margin-bottom: 20px; opacity: 0.8;">AssemblyAI + N8N + Detecção Inteligente</p>
+            
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="statusText">Sistema Pronto</span>
+                </div>
+                <div class="status-indicator">
+                    <span id="connectionStatus">🔴 Desconectado</span>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h3>⚙️ Configurações do Sistema</h3>
+                <div class="config-item">
+                    <label>🔗 URL do Webhook N8N:</label>
+                    <input type="url" id="webhookUrl" 
+                           value="https://n8n.main.iseed.cloud/webhook/audio-stream"
+                           placeholder="https://seu-n8n.com/webhook/audio-stream">
+                </div>
+                <div class="config-item">
+                    <label>🎯 Sensibilidade de Detecção:</label>
+                    <select id="sensitivity">
+                        <option value="0.5">Baixa (50%)</option>
+                        <option value="0.7" selected>Média (70%)</option>
+                        <option value="0.8">Alta (80%)</option>
+                        <option value="0.9">Muito Alta (90%)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>⏱️ Intervalo de Gravação (segundos):</label>
+                    <input type="number" id="recordingInterval" value="4" min="2" max="10">
+                </div>
+                <div class="config-item">
+                    <label>📺 Duração da Projeção (segundos):</label>
+                    <input type="number" id="projectionDuration" value="12" min="5" max="60">
+                </div>
+            </div>
+            
+            <button id="recordBtn" class="record-button">
+                🎤 INICIAR TRANSMISSÃO AO VIVO
+            </button>
+            
+            <div class="processing-indicator" id="processingIndicator">
+                <div class="spinner"></div>
+                <span>Processando com AssemblyAI...</span>
+            </div>
+            
+            <div class="confidence-bar">
+                <div id="confidenceBar" class="confidence-fill"></div>
+            </div>
+            
+            <div class="transcript-area" id="transcriptArea">
+                <strong>💬 Transcrições aparecerão aqui em tempo real...</strong><br>
+                <small style="opacity: 0.7;">Sistema usando AssemblyAI para máxima precisão em português</small>
+            </div>
+            
+            <div class="keywords-detected" id="keywordsDetected">
+                <!-- Keywords detectadas aparecerão aqui -->
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div id="totalTranscriptions" class="stat-value">0</div>
+                    <div class="stat-label">Transcrições</div>
+                </div>
+                <div class="stat-item">
+                    <div id="versesDetected" class="stat-value">0</div>
+                    <div class="stat-label">Versículos Detectados</div>
+                </div>
+            </div>
+            
+            <button class="toggle-btn" onclick="toggleLog()">🔍 Mostrar/Ocultar Log</button>
+            <div id="logArea" class="log-area" style="display: none;">
+                <div style="color: #64b5f6;">Sistema inicializado - AssemblyAI + N8N</div>
+            </div>
+        </div>
+        
+        <!-- Tela de Projeção -->
+        <div class="projection-screen" id="projectionScreen">
+            <div class="placeholder-text">
+                📖 Aguardando detecção de versículo bíblico...<br>
+                <small style="font-size: 1rem; margin-top: 20px; display: block;">
+                    Fale o nome de um livro bíblico + capítulo + versículo
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BiblicalProjectionSystem {
+            constructor() {
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.stream = null;
+                this.recordingInterval = null;
+                this.currentInterval = 4000; // 4 segundos padrão
+                
+                // Estatísticas
+                this.stats = {
+                    totalTranscriptions: 0,
+                    versesDetected: 0,
+                    lastConfidence: 0
+                };
+                
+                // Elementos DOM
+                this.initializeElements();
+                this.bindEvents();
+                this.log('🚀 Sistema inicializado - AssemblyAI + N8N');
+            }
+            
+            initializeElements() {
+                this.recordBtn = document.getElementById('recordBtn');
+                this.statusText = document.getElementById('statusText');
+                this.statusDot = document.getElementById('statusDot');
+                this.connectionStatus = document.getElementById('connectionStatus');
+                this.transcriptArea = document.getElementById('transcriptArea');
+                this.projectionScreen = document.getElementById('projectionScreen');
+                this.confidenceBar = document.getElementById('confidenceBar');
+                this.keywordsDetected = document.getElementById('keywordsDetected');
+                this.logArea = document.getElementById('logArea');
+                this.processingIndicator = document.getElementById('processingIndicator');
+                
+                // Configurações
+                this.webhookUrl = document.getElementById('webhookUrl');
+                this.sensitivity = document.getElementById('sensitivity');
+                this.recordingInterval = document.getElementById('recordingInterval');
+                this.projectionDuration = document.getElementById('projectionDuration');
+                
+                // Stats
+                this.totalTranscriptionsEl = document.getElementById('totalTranscriptions');
+                this.versesDetectedEl = document.getElementById('versesDetected');
+            }
+            
+            bindEvents() {
+                this.recordBtn.addEventListener('click', () => this.toggleRecording());
+                this.recordingInterval.addEventListener('change', (e) => {
+                    this.currentInterval = parseInt(e.target.value) * 1000;
+                    this.log(`⚙️ Intervalo alterado para ${e.target.value}s`);
+                });
+            }
+            
+            async toggleRecording() {
+                if (!this.isRecording) {
+                    await this.startRecording();
+                } else {
+                    this.stopRecording();
+                }
+            }
+            
+            async startRecording() {
+                try {
+                    this.log('🎤 Solicitando acesso ao microfone...');
+                    this.setStatus('Conectando ao microfone...', false);
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: 16000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    
+                    this.mediaRecorder = new MediaRecorder(this.stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                    
+                    let audioChunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                            this.log(`📦 Chunk capturado: ${(event.data.size/1024).toFixed(1)}KB`);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = async () => {
+                        if (audioChunks.length > 0) {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            await this.processAudioChunk(audioBlob);
+                            audioChunks = [];
+                        }
+                    };
+                    
+                    // Iniciar gravação contínua com intervalos
+                    this.startContinuousRecording();
+                    
+                    this.isRecording = true;
+                    this.recordBtn.textContent = '⏹️ PARAR TRANSMISSÃO';
+                    this.recordBtn.classList.add('recording');
+                    this.setStatus('Transmitindo ao vivo', true);
+                    this.connectionStatus.textContent = '🟢 Conectado - AssemblyAI';
+                    
+                    this.log('✅ Transmissão iniciada com sucesso');
+                    
+                } catch (error) {
+                    this.log(`❌ Erro ao iniciar: ${error.message}`);
+                    this.setStatus(`Erro: ${error.message}`, false);
+                }
+            }
+            
+            startContinuousRecording() {
+                // Primeira gravação
+                this.mediaRecorder.start();
+                
+                this.recordingInterval = setInterval(() => {
+                    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                        this.mediaRecorder.stop();
+                        // Pequeno delay antes de reiniciar
+                        setTimeout(() => {
+                            if (this.mediaRecorder && this.isRecording) {
+                                this.mediaRecorder.start();
+                            }
+                        }, 100);
+                    }
+                }, this.currentInterval);
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                }
+                
+                if (this.recordingInterval) {
+                    clearInterval(this.recordingInterval);
+                }
+                
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                }
+                
+                this.isRecording = false;
+                this.recordBtn.textContent = '🎤 INICIAR TRANSMISSÃO AO VIVO';
+                this.recordBtn.classList.remove('recording');
+                this.setStatus('Transmissão parada', false);
+                this.connectionStatus.textContent = '🔴 Desconectado';
+                this.processingIndicator.classList.remove('active');
+                
+                this.log('⏹️ Transmissão finalizada');
+            }
+            
+            async processAudioChunk(audioBlob) {
+                try {
+                    this.log(`🔄 Processando chunk: ${(audioBlob.size/1024).toFixed(1)}KB`);
+                    this.processingIndicator.classList.add('active');
+                    
+                    // Converter WebM para WAV se necessário
+                    const wavBlob = await this.convertToWav(audioBlob);
+                    
+                    // Enviar para N8N
+                    const response = await fetch(this.webhookUrl.value, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'audio/wav'
+                        },
+                        body: wavBlob
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        this.handleTranscriptionResult(result);
+                    } else {
+                        const errorText = await response.text();
+                        this.log(`❌ Erro HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                } catch (error) {
+                    this.log(`❌ Erro no processamento: ${error.message}`);
+                } finally {
+                    this.processingIndicator.classList.remove('active');
+                }
+            }
+            
+            async convertToWav(webmBlob) {
+                // Simples conversão - para produção use uma biblioteca apropriada
+                return new Promise((resolve) => {
+                    const audio = new Audio();
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        try {
+                            const arrayBuffer = reader.result;
+                            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                            
+                            // Converter para WAV (implementação simplificada)
+                            const wavBlob = this.createWavBlob(audioBuffer);
+                            resolve(wavBlob);
+                        } catch (error) {
+                            this.log(`⚠️ Enviando WebM original: ${error.message}`);
+                            resolve(webmBlob); // Fallback para o original
+                        }
+                    };
+                    reader.readAsArrayBuffer(webmBlob);
+                });
+            }
+            
+            createWavBlob(audioBuffer) {
+                const sampleRate = 16000;
+                const numChannels = 1;
+                
+                // Obter dados do primeiro canal
+                const inputData = audioBuffer.getChannelData(0);
+                
+                // Resampling se necessário
+                let outputData;
+                if (audioBuffer.sampleRate === sampleRate) {
+                    outputData = inputData;
+                } else {
+                    const ratio = audioBuffer.sampleRate / sampleRate;
+                    const outputLength = Math.round(inputData.length / ratio);
+                    outputData = new Float32Array(outputLength);
+                    
+                    for (let i = 0; i < outputLength; i++) {
+                        const sourceIndex = i * ratio;
+                        const index = Math.floor(sourceIndex);
+                        outputData[i] = inputData[index] || 0;
+                    }
+                }
+                
+                // Converter para 16-bit PCM
+                const pcmData = new Int16Array(outputData.length);
+                for (let i = 0; i < outputData.length; i++) {
+                    const sample = Math.max(-1, Math.min(1, outputData[i]));
+                    pcmData[i] = Math.round(sample * 32767);
+                }
+                
+                // Criar WAV header
+                const dataSize = pcmData.length * 2;
+                const fileSize = 44 + dataSize;
+                const buffer = new ArrayBuffer(fileSize);
+                const view = new DataView(buffer);
+                
+                // WAV header
+                const writeString = (offset, string) => {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                };
+                
+                writeString(0, 'RIFF');
+                view.setUint32(4, fileSize - 8, true);
+                writeString(8, 'WAVE');
+                writeString(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * 2, true);
+                view.setUint16(32, numChannels * 2, true);
+                view.setUint16(34, 16, true);
+                writeString(36, 'data');
+                view.setUint32(40, dataSize, true);
+                
+                // Escrever dados PCM
+                for (let i = 0; i < pcmData.length; i++) {
+                    view.setInt16(44 + i * 2, pcmData[i], true);
+                }
+                
+                return new Blob([buffer], { type: 'audio/wav' });
+            }
+            
+            handleTranscriptionResult(result) {
+                this.log(`📝 Resultado recebido: ${JSON.stringify(result)}`);
+                
+                if (result.status === 'success' && result.transcript) {
+                    this.stats.totalTranscriptions++;
+                    this.updateStats();
+                    
+                    // Atualizar transcrição
+                    this.transcriptArea.innerHTML = `
+                        <strong>💬 Última transcrição:</strong><br>
+                        "${result.transcript}"<br>
+                        <small>🎯 Confiança: ${(result.confidence * 100).toFixed(1)}% | 
+                        ⏰ ${new Date().toLocaleTimeString()}</small>
+                    `;
+                    
+                    // Atualizar barra de confiança
+                    this.confidenceBar.style.width = `${result.confidence * 100}%`;
+                    
+                    // Verificar se há versículos detectados
+                    if (result.hasVerses && result.references && result.references.length > 0) {
+                        this.stats.versesDetected++;
+                        this.updateStats();
+                        this.displayDetectedVerses(result.references);
+                        this.log(`📖 ${result.references.length} referência(s) bíblica(s) detectada(s)`);
+                    }
+                    
+                } else if (result.status === 'processing') {
+                    this.log(`⏳ Áudio ainda sendo processado: ${result.transcriptId}`);
+                } else {
+                    this.log(`⚠️ Resultado inesperado: ${JSON.stringify(result)}`);
+                }
+            }
+            
+            displayDetectedVerses(references) {
+                // Mostrar keywords detectadas
+                this.keywordsDetected.innerHTML = references.map(ref => 
+                    `<div class="keyword-tag detected">${ref.livroOriginal} ${ref.capitulo}:${ref.versiculo || ''}</div>`
+                ).join('');
+                
+                // Se há uma referência completa, simular projeção
+                const completeRef = references.find(ref => ref.capitulo && ref.versiculo);
+                if (completeRef) {
+                    this.simulateVerseProjection(completeRef);
+                }
+            }
+            
+            simulateVerseProjection(reference) {
+                // Versículos populares para demonstração
+                const sampleVerses = {
+                    'john3:16': 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.',
+                    'psalms23:1': 'O Senhor é o meu pastor; nada me faltará.',
+                    'romans8:28': 'Sabemos que todas as coisas contribuem juntamente para o bem daqueles que amam a Deus, daqueles que são chamados por seu decreto.',
+                    'matthew5:16': 'Assim resplandeça a vossa luz diante dos homens, para que vejam as vossas boas obras e glorifiquem o vosso Pai, que está nos céus.',
+                    'philippians4:13': 'Posso todas as coisas em Cristo que me fortalece.'
+                };
+                
+                const key = `${reference.livro.toLowerCase()}${reference.capitulo}:${reference.versiculo}`;
+                const verseText = sampleVerses[key] || 'Versículo encontrado! (Conecte com uma API bíblica real para obter o texto completo)';
+                
+                this.projectionScreen.innerHTML = `
+                    <div class="verse-display">${verseText}</div>
+                    <div class="verse-reference">${reference.livro} ${reference.capitulo}:${reference.versiculo}</div>
+                `;
+                
+                // Auto-hide após duração configurada
+                const duration = parseInt(this.projectionDuration.value) * 1000;
+                setTimeout(() => {
+                    this.projectionScreen.innerHTML = `
+                        <div class="placeholder-text">
+                            📖 Aguardando próximo versículo...<br>
+                            <small style="font-size: 1rem; margin-top: 20px; display: block;">
+                                Último: ${reference.livro} ${reference.capitulo}:${reference.versiculo}
+                            </small>
+                        </div>
+                    `;
+                }, duration);
+            }
+            
+            updateStats() {
+                this.totalTranscriptionsEl.textContent = this.stats.totalTranscriptions;
+                this.versesDetectedEl.textContent = this.stats.versesDetected;
+            }
+            
+            setStatus(message, connected) {
+                this.statusText.textContent = message;
+                this.statusDot.classList.toggle('connected', connected);
+            }
+            
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.innerHTML = `<span style="color: #64b5f6;">${timestamp}:</span> ${message}`;
+                this.logArea.appendChild(logEntry);
+                this.logArea.scrollTop = this.logArea.scrollHeight;
+                console.log(`[${timestamp}] ${message}`);
+            }
+        }
+        
+        // Função global para toggle do log
+        function toggleLog() {
+            const logArea = document.getElementById('logArea');
+            logArea.style.display = logArea.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Inicializar sistema quando a página carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            window.bibleSystem = new BiblicalProjectionSystem();
+        });
+    </script>
+</body>
+</html>
